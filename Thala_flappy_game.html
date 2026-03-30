@@ -514,40 +514,44 @@
         // Event listeners - Enhanced mobile controls
         canvas.addEventListener('click', handleTap);
         
-        // Enhanced touch events for mobile
+        // Enhanced touch events for mobile - only on canvas during game
         canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleTap();
+            if (gameStarted) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleTap(e);
+            }
         });
         
         canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            if (gameStarted) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         });
         
-        // Add touch events to entire body for better mobile experience
-        document.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleTap();
+        // Touch events for start screen only - not on buttons/inputs
+        startScreen.addEventListener('touchstart', (e) => {
+            // Only handle tap if not touching input or button
+            if (e.target === startScreen || e.target.tagName === 'IMG' || e.target.tagName === 'P' || e.target.tagName === 'H1' || (e.target.tagName === 'INPUT' && !gameStarted)) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleTap(e);
+            }
         });
         
-        document.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-        
-        // Prevent default touch behaviors
+        // Prevent default touch behaviors only during game
         document.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            if (gameStarted) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         }, { passive: false });
         
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();
-                handleTap();
+                handleTap(e);
             }
             if (e.code === 'KeyR' && gameOver) {
                 restartGame();
