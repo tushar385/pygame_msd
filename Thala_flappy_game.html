@@ -21,8 +21,10 @@
             touch-action: none;
             image-rendering: crisp-edges;
             image-rendering: pixelated;
-            max-width: 100vw;
-            max-height: 100vh;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
         }
         .start-screen, .game-over-screen {
             position: absolute;
@@ -123,7 +125,9 @@
     <img src="image.png" alt="Game Over" style="width:260px;height:175px;margin:8px;border:2px solid #000;border-radius:10px;">
     <h1 style="font-size:1.4em;margin-bottom:4px;">GAME OVER!</h1>
     <p id="finalScore" style="font-size:1.1em;"></p>
-    <button class="btn" id="restartBtn">▶ Play Again</button>
+    <button class="btn" id="restartBtn" disabled style="opacity:0.5;cursor:not-allowed;">
+        <span id="restartLabel">⏳ Wait...</span>
+    </button>
     <div class="leaderboard" id="gameOverLeaderboard">
         <h2>🏆 Top Players</h2>
         <div class="lb-empty">Loading...</div>
@@ -199,11 +203,14 @@ const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const VW = 420, VH = 700;
 let scale = 1;
+let offsetX = 0, offsetY = 0;
 function resize() {
     scale = Math.min(window.innerWidth / VW, window.innerHeight / VH);
-    canvas.width  = Math.round(VW * scale);
-    canvas.height = Math.round(VH * scale);
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    offsetX = (window.innerWidth  - VW * scale) / 2;
+    offsetY = (window.innerHeight - VH * scale) / 2;
+    ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
 }
 resize();
 window.addEventListener('resize', resize);
@@ -274,6 +281,13 @@ function spawnPipe() {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawBg() {
+    // Fill entire canvas with yellow first (covers side bars)
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#ffdf00';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    // Game area
     ctx.fillStyle = '#ffdf00'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#008000'; ctx.fillRect(0, VH - GROUND_H, VW, GROUND_H);
     ctx.fillStyle = '#006400'; ctx.fillRect(0, VH - GROUND_H, VW, 4);
@@ -367,7 +381,21 @@ async function handleGameOver() {
     gameOverScreen.classList.remove('hidden');
     gameOverTime = Date.now();
     restartOk = false;
-    setTimeout(() => restartOk = true, 1500);
+    const btn = document.getElementById('restartBtn');
+    const lbl = document.getElementById('restartLabel');
+    btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+    let secs = 2;
+    lbl.textContent = `⏳ ${secs}s`;
+    const iv = setInterval(() => {
+        secs--;
+        if (secs > 0) { lbl.textContent = `⏳ ${secs}s`; }
+        else {
+            clearInterval(iv);
+            restartOk = true;
+            btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            lbl.textContent = '▶ Play Again';
+        }
+    }, 1000);
     await saveScore(playerName, score);
     const lb = await getLeaderboard();
     renderLeaderboard('gameOverLeaderboard', lb, playerName);
@@ -409,7 +437,7 @@ function restartGame() { startGame(); }
 document.getElementById('startBtn').addEventListener('click',  e => { e.stopPropagation(); doStart(); });
 document.getElementById('restartBtn').addEventListener('click', e => { e.stopPropagation(); restartGame(); });
 canvas.addEventListener('click', handleTap);
-canvas.addEventListener('touchstart', e => { if (gameStarted) { e.preventDefault(); handleTap(e); } }, { passive: false });
+document.addEventListener('touchstart', e => { if (gameStarted && !gameOver) { e.preventDefault(); handleTap(e); } }, { passive: false });
 startScreen.addEventListener('touchstart', e => {
     if (['IMG','P','H1','DIV'].includes(e.target.tagName)) { e.preventDefault(); handleTap(e); }
 });
