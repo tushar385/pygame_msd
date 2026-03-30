@@ -579,7 +579,11 @@
             ctx.fillStyle = YELLOW;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            player.velocity += player.gravity;
+            // Slower gravity for first 2 seconds (120 frames at 60fps)
+            const gameAge = frameCount;
+            const gravityMultiplier = gameAge < 120 ? 0.3 : 1.0; // 30% gravity for first 2 seconds
+            
+            player.velocity += player.gravity * gravityMultiplier;
             player.y += player.velocity;
             
             // Spawn pipes - first obstacle comes after 0.5 seconds, then normal spacing
