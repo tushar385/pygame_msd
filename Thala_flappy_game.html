@@ -486,7 +486,13 @@
             gameLoop();
         }
         
-        function handleTap() {
+        function handleTap(event) {
+            const touchY = event.touches ? event.touches[0].clientY : event.clientY;
+            const screenHeight = window.innerHeight;
+            const isBottomHalf = touchY > screenHeight / 2;
+            
+            console.log(`👆 Touch Y: ${touchY}, Screen half: ${screenHeight / 2}, Is bottom: ${isBottomHalf}`);
+            
             if (!gameStarted && !gameOver) {
                 startGame();
             } else if (gameStarted && !gameOver) {
@@ -494,7 +500,7 @@
             } else if (gameOver) {
                 // Check if 2 seconds have passed since game over
                 const timeSinceGameOver = Date.now() - gameOverTime;
-                if (timeSinceGameOver >= 2000) { // 2000ms = 2 seconds
+                if ((timeSinceGameOver >= 2000) || isBottomHalf) { // 2000ms = 2 seconds OR touching bottom half
                     restartGame();
                 }
             }
