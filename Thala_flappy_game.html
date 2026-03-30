@@ -474,33 +474,25 @@
         function updateScaleFactor() {
             const isMobile = window.innerWidth <= 768;
             if (isMobile) {
-                // Mobile: Fill screen completely, adjust game dimensions
+                // Mobile: Simple scaling for 6.3 inch screens
                 const screenWidth = window.innerWidth;
                 const screenHeight = window.innerHeight;
                 
                 // Detect orientation
                 const isPortrait = screenHeight > screenWidth;
                 
-                // Calculate scale to fit screen perfectly
-                const scaleX = screenWidth / WIDTH;
-                const scaleY = screenHeight / HEIGHT;
-                
                 if (isPortrait) {
-                    // Portrait mode: Modern phones are 6.5+ inches tall
-                    // Use aggressive scaling for all modern phones
-                    scaleFactor = Math.max(scaleX, scaleY) * 1.3; // 130% for portrait
-                    
-                    console.log(`📱 Portrait mode - Modern phone scaling`);
+                    // Portrait 6.3 inch: Use 1.5x scale for full screen
+                    scaleFactor = 1.5;
+                    console.log(`📱 Portrait 6.3 inch - 1.5x scale`);
                 } else {
-                    // Landscape mode: Use existing logic
-                    scaleFactor = Math.max(scaleX, scaleY) * 1.1; // 110% for landscape
-                    
-                    console.log(`📱 Landscape mode - Wide screen scaling`);
+                    // Landscape 6.3 inch: Use 1.3x scale
+                    scaleFactor = 1.3;
+                    console.log(`📱 Landscape 6.3 inch - 1.3x scale`);
                 }
                 
                 console.log(`📱 Mobile scale factor: ${scaleFactor.toFixed(2)}`);
                 console.log(`📐 Screen: ${screenWidth}x${screenHeight} vs Game: ${WIDTH}x${HEIGHT}`);
-                console.log(`📏 Scale ratios - X: ${scaleX.toFixed(2)}, Y: ${scaleY.toFixed(2)}`);
             } else {
                 scaleFactor = 1;
                 console.log(`🖥️ Desktop scale factor: ${scaleFactor}`);
