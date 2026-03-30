@@ -282,9 +282,11 @@ function stopBg() { bgMusic && bgMusic.pause(); }
 
 // ── Pipes ─────────────────────────────────────────────────────────────────────
 function spawnPipe() {
-    const gap_y   = Math.random() * (VH - 400) + 130;
-    const stagger = Math.random() < 0.5 ? Math.random() * 80 + 40 : 0;
-    pipes.push({ x: VW, gap_y, stagger });
+    const gap_y   = Math.random() * (VH - 500) + 180; // tighter range, never too extreme
+    const stagger = Math.random() < 0.5 ? Math.random() * 60 + 30 : 0;
+    // if staggered, ensure horizontal gap between pipes is passable (at least 90px)
+    const safeStagger = stagger > 0 ? Math.max(stagger, PIPE_W + 20) : 0;
+    pipes.push({ x: VW, gap_y, stagger: safeStagger });
 }
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
