@@ -27,7 +27,7 @@
             height: 100vh;
         }
         .start-screen, .game-over-screen {
-            position: absolute;
+            position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
             background: rgba(0,0,0,0.85);
@@ -125,6 +125,15 @@
     <img src="image.png" alt="Game Over" style="width:300px;height:200px;margin:8px;border:2px solid #000;border-radius:10px;">
     <h1 style="font-size:1.4em;margin-bottom:4px;">GAME OVER!</h1>
     <p id="finalScore" style="font-size:1.1em;"></p>
+    <div style="display:flex;align-items:center;gap:8px;margin:4px 0;" id="nameDisplay">
+        <span id="displayName" style="color:#ffdf00;font-size:1em;"></span>
+        <button class="btn" id="editNameBtn" style="padding:6px 14px;font-size:0.85em;margin:0;background:#555;">✏️ Edit</button>
+    </div>
+    <div style="display:none;align-items:center;gap:6px;margin:4px 0;" id="nameEditRow">
+        <input type="text" id="editNameInput" maxlength="16" autocomplete="off"
+            style="padding:7px 12px;font-size:1em;border-radius:16px;border:2px solid #ffdf00;background:#1a1a1a;color:#fff;width:160px;text-align:center;outline:none;">
+        <button class="btn" id="saveNameBtn" style="padding:7px 14px;font-size:0.9em;margin:0;">✔ Save</button>
+    </div>
     <button class="btn" id="restartBtn" disabled style="opacity:0.5;cursor:not-allowed;">
         <span id="restartLabel">⏳ Wait...</span>
     </button>
@@ -135,7 +144,7 @@
 </div>
 
 <script>
-// ── Firebase REST API (no SDK needed) ─────────────────────────────────────────
+// ── Firebase REST API ─────────────────────────────────────────────────────────
 const FB_PROJECT = "flappy-dhoni-game";
 const FB_BASE    = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
 
@@ -153,17 +162,15 @@ async function getLeaderboard() {
     } catch(e) { console.error("LB fetch:", e); return []; }
 }
 
-async function saveScore(name, score) {
+async function saveScore(name, sc) {
     try {
         const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        // First check existing score
         const getRes = await fetch(`${FB_BASE}/leaderboard/${key}`);
         if (getRes.ok) {
             const existing = await getRes.json();
             const oldScore = parseInt(existing.fields?.score?.integerValue || 0);
-            if (oldScore >= score) return; // don't overwrite better score
+            if (oldScore >= sc) return;
         }
-        // Save/update with PATCH
         const url = `${FB_BASE}/leaderboard/${key}?updateMask.fieldPaths=name&updateMask.fieldPaths=score&updateMask.fieldPaths=updatedAt`;
         await fetch(url, {
             method: 'PATCH',
@@ -171,7 +178,7 @@ async function saveScore(name, score) {
             body: JSON.stringify({
                 fields: {
                     name:      { stringValue: name },
-                    score:     { integerValue: score },
+                    score:     { integerValue: sc },
                     updatedAt: { integerValue: Date.now() }
                 }
             })
@@ -202,10 +209,10 @@ function renderLeaderboard(elId, lb, highlightName) {
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const VW = 420, VH = 700;
-let scale = 1;
-let offsetX = 0, offsetY = 0;
+let scale = 1, offsetX = 0, offsetY = 0;
+
 function resize() {
-    scale = Math.min(window.innerWidth / VW, window.innerHeight / VH);
+    scale   = Math.min(window.innerWidth / VW, window.innerHeight / VH);
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
     offsetX = (window.innerWidth  - VW * scale) / 2;
@@ -228,16 +235,16 @@ const GROUND_H = 30;
 // ── State ─────────────────────────────────────────────────────────────────────
 let gameStarted = false, gameOver = false;
 let score = 0, frameCount = 0;
-let gameOverTime = 0, raf = null;
+let gameOverTime = 0, raf = null, restartOk = false;
 let py = VH / 2, vy = 0;
 let pipes = [], passedPipes = [];
-let restartOk = false;
+let playerName = 'Player';
 let localBest  = 0;
+let lastTime = 0, elapsed = 0;
 
 const startScreen    = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
 const finalScoreEl   = document.getElementById('finalScore');
-const personalBestEl = document.getElementById('personalBest');
 const nameInputEl    = document.getElementById('nameInput');
 
 // ── Images ────────────────────────────────────────────────────────────────────
@@ -281,13 +288,11 @@ function spawnPipe() {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawBg() {
-    // Fill entire canvas with yellow first (covers side bars)
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#ffdf00';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
-    // Game area
     ctx.fillStyle = '#ffdf00'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#008000'; ctx.fillRect(0, VH - GROUND_H, VW, GROUND_H);
     ctx.fillStyle = '#006400'; ctx.fillRect(0, VH - GROUND_H, VW, 4);
@@ -340,18 +345,16 @@ function checkCollision() {
 }
 
 // ── Game loop ─────────────────────────────────────────────────────────────────
-let lastTime = 0;
-let elapsed = 0;
-
 function gameLoop(timestamp) {
     if (!gameStarted || gameOver) return;
 
     const dt = Math.min((timestamp - lastTime) / 16.67, 2.5);
     lastTime = timestamp;
-    elapsed += timestamp - (lastTime - dt * 16.67);
+    elapsed += dt * 16.67;
 
-    const gMult = elapsed < 1500 ? 0.3 : 1.0; // slow gravity for 1.5 seconds only
-    vy += GRAVITY * gMult * dt; py += vy * dt;
+    const gMult = elapsed < 1500 ? 0.3 : 1.0;
+    vy += GRAVITY * gMult * dt;
+    py += vy * dt;
 
     if (frameCount === 30) spawnPipe();
     else if (frameCount > 30 && (frameCount - 30) % 90 === 0) spawnPipe();
@@ -369,7 +372,8 @@ function gameLoop(timestamp) {
 
     if (checkCollision()) {
         gameOver = true; stopBg(); playGameOver();
-        handleGameOver(); return;
+        handleGameOver();
+        return;
     }
     frameCount++;
     raf = requestAnimationFrame(gameLoop);
@@ -377,10 +381,12 @@ function gameLoop(timestamp) {
 
 async function handleGameOver() {
     if (score > localBest) localBest = score;
-    finalScoreEl.textContent   = `Score: ${score}  |  Best: ${localBest}`;
+    finalScoreEl.textContent = `Score: ${score}  |  Best: ${localBest}`;
+    document.getElementById('displayName').textContent = `👤 ${playerName}`;
     gameOverScreen.classList.remove('hidden');
     gameOverTime = Date.now();
     restartOk = false;
+
     const btn = document.getElementById('restartBtn');
     const lbl = document.getElementById('restartLabel');
     btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
@@ -388,14 +394,16 @@ async function handleGameOver() {
     lbl.textContent = `⏳ ${secs}s`;
     const iv = setInterval(() => {
         secs--;
-        if (secs > 0) { lbl.textContent = `⏳ ${secs}s`; }
-        else {
+        if (secs > 0) {
+            lbl.textContent = `⏳ ${secs}s`;
+        } else {
             clearInterval(iv);
             restartOk = true;
             btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
             lbl.textContent = '▶ Play Again';
         }
     }, 1000);
+
     await saveScore(playerName, score);
     const lb = await getLeaderboard();
     renderLeaderboard('gameOverLeaderboard', lb, playerName);
@@ -406,10 +414,7 @@ function jump() { if (gameStarted && !gameOver) { vy = JUMP_V; playJump(); } }
 
 function handleTap(e) {
     if (e.target && ['INPUT','BUTTON'].includes(e.target.tagName)) return;
-    const touchY   = e.touches ? e.touches[0].clientY : e.clientY;
-    const isBottom = touchY > window.innerHeight / 2;
-    if (!gameStarted && !gameOver)     doStart();
-    else if (gameStarted && !gameOver) jump();
+    if (gameStarted && !gameOver) jump();
     else if (gameOver && restartOk) restartGame();
 }
 
@@ -434,13 +439,33 @@ function startGame() {
 
 function restartGame() { startGame(); }
 
-document.getElementById('startBtn').addEventListener('click',  e => { e.stopPropagation(); doStart(); });
-document.getElementById('restartBtn').addEventListener('click', e => { e.stopPropagation(); restartGame(); });
+// ── Event listeners ───────────────────────────────────────────────────────────
+document.getElementById('startBtn').addEventListener('click',    e => { e.stopPropagation(); doStart(); });
+document.getElementById('restartBtn').addEventListener('click',  e => { e.stopPropagation(); restartGame(); });
+document.getElementById('editNameBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const editRow = document.getElementById('nameEditRow');
+    const dispRow = document.getElementById('nameDisplay');
+    document.getElementById('editNameInput').value = playerName;
+    editRow.style.display = 'flex';
+    dispRow.style.display = 'none';
+    document.getElementById('editNameInput').focus();
+});
+document.getElementById('saveNameBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const val = document.getElementById('editNameInput').value.trim();
+    if (val.length > 0) playerName = val.slice(0, 16);
+    document.getElementById('displayName').textContent = `👤 ${playerName}`;
+    document.getElementById('nameEditRow').style.display = 'none';
+    document.getElementById('nameDisplay').style.display = 'flex';
+});
+
 canvas.addEventListener('click', handleTap);
-document.addEventListener('touchstart', e => { if (gameStarted && !gameOver) { e.preventDefault(); handleTap(e); } }, { passive: false });
+document.addEventListener('touchstart', e => {
+    if (gameStarted && !gameOver) { e.preventDefault(); handleTap(e); }
+}, { passive: false });
 startScreen.addEventListener('touchstart', e => {
-    if (e.target.tagName === 'BUTTON') return;
-    e.preventDefault();
+    if (e.target.tagName !== 'BUTTON') e.preventDefault();
 });
 document.addEventListener('touchmove', e => { if (gameStarted) e.preventDefault(); }, { passive: false });
 document.addEventListener('keydown', e => {
@@ -449,10 +474,11 @@ document.addEventListener('keydown', e => {
 });
 nameInputEl.addEventListener('keydown', e => { if (e.code === 'Enter') doStart(); });
 
+// ── Boot ──────────────────────────────────────────────────────────────────────
 loadAudio();
 (function idleDraw() { if (!gameStarted) { drawBg(); requestAnimationFrame(idleDraw); } })();
 getLeaderboard().then(lb => renderLeaderboard('startLeaderboard', lb, null));
-console.log('🏏 Flappy Dhoni — Firebase REST ready!');
+console.log('🏏 Flappy Dhoni — ready!');
 </script>
 </body>
 </html>
