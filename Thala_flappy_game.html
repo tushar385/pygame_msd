@@ -363,17 +363,27 @@
         
         async function loadLeaderboard() {
             try {
+                console.log('📊 Loading full leaderboard...');
                 leaderboardContent.innerHTML = '<p style="color: #fff;">Loading leaderboard...</p>';
                 
+                if (!db) {
+                    throw new Error('Firebase database not available');
+                }
+                
+                console.log('🔥 Querying Firebase for leaderboard data...');
                 const snapshot = await db.collection('leaderboard')
                     .orderBy('score', 'desc')
                     .orderBy('timestamp', 'desc')
                     .limit(50)
                     .get();
                 
+                console.log(`📋 Retrieved ${snapshot.docs.length} documents from Firebase`);
+                
                 const scores = [];
                 snapshot.forEach(doc => {
-                    scores.push(doc.data());
+                    const data = doc.data();
+                    console.log('📄 Score document:', data);
+                    scores.push(data);
                 });
                 
                 // Remove duplicates (keep highest score per player)
@@ -388,6 +398,8 @@
                 const topScores = Object.values(uniqueScores)
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 10);
+                
+                console.log(`🏆 Top ${topScores.length} scores calculated:`, topScores);
                 
                 // Display leaderboard
                 let html = '<div style="text-align: left;">';
@@ -404,10 +416,32 @@
                 html += '</div>';
                 
                 leaderboardContent.innerHTML = html;
+                console.log('✅ Leaderboard displayed successfully');
                 
             } catch (error) {
-                console.error('Error loading leaderboard:', error);
-                leaderboardContent.innerHTML = '<p style="color: #ff6b6b;">Error loading leaderboard. Please try again.</p>';
+                console.error('❌ Error loading leaderboard:', error);
+                console.error('Error details:', error.message);
+                console.error('Error stack:', error.stack);
+                
+                // Try localStorage fallback
+                try {
+                    const localScores = JSON.parse(localStorage.getItem('flappyDhoniLocalScores') || '[]');
+                    if (localScores.length > 0) {
+                        console.log('🔄 Showing local scores as fallback');
+                        let html = '<div style="text-align: left;"><p style="color: #ffeb3b;">📱 Local Scores (Firebase unavailable)</p>';
+                        localScores.sort((a, b) => b.score - a.score).slice(0, 10).forEach((entry, index) => {
+                            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                            html += `<p style="color: #fff;">${medal} ${entry.name}: ${entry.score} - ${entry.date}</p>`;
+                        });
+                        html += '</div>';
+                        leaderboardContent.innerHTML = html;
+                    } else {
+                        leaderboardContent.innerHTML = '<p style="color: #ff6b6b;">❌ Firebase error: ' + error.message + '<br><br>📱 No local scores available</p>';
+                    }
+                } catch (localError) {
+                    console.error('❌ Even local fallback failed:', localError);
+                    leaderboardContent.innerHTML = '<p style="color: #ff6b6b;">❌ Firebase error: ' + error.message + '<br><br>📱 Local storage also failed</p>';
+                }
             }
         }
         
@@ -810,7 +844,12 @@
         // Load game over leaderboard preview (top 5)
         async function loadGameOverLeaderboard() {
             try {
+                console.log('📊 Loading game over leaderboard preview...');
                 gameOverLeaderboardContent.innerHTML = 'Loading...';
+                
+                if (!db) {
+                    throw new Error('Firebase database not available');
+                }
                 
                 const snapshot = await db.collection('leaderboard')
                     .orderBy('score', 'desc')
@@ -818,9 +857,12 @@
                     .limit(20)
                     .get();
                 
+                console.log(`📋 Retrieved ${snapshot.docs.length} documents for game over leaderboard`);
+                
                 const scores = [];
                 snapshot.forEach(doc => {
-                    scores.push(doc.data());
+                    const data = doc.data();
+                    scores.push(data);
                 });
                 
                 // Remove duplicates (keep highest score per player)
@@ -836,6 +878,8 @@
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 5);
                 
+                console.log(`🏆 Game over top 5 scores:`, topScores);
+                
                 // Display compact leaderboard
                 let html = '';
                 if (topScores.length === 0) {
@@ -850,10 +894,32 @@
                 }
                 
                 gameOverLeaderboardContent.innerHTML = html;
+                console.log('✅ Game over leaderboard displayed');
                 
             } catch (error) {
-                console.error('Error loading game over leaderboard:', error);
-                gameOverLeaderboardContent.innerHTML = '<p style="color: #ff6b6b;">Error loading scores</p>';
+                console.error('❌ Error loading game over leaderboard:', error);
+                console.error('Game over leaderboard error details:', error.message);
+                
+                // Try localStorage fallback for game over
+                try {
+                    const localScores = JSON.parse(localStorage.getItem('flappyDhoniLocalScores') || '[]');
+                    if (localScores.length > 0) {
+                        console.log('🔄 Showing local scores in game over screen');
+                        let html = '';
+                        localScores.sort((a, b) => b.score - a.score).slice(0, 5).forEach((entry, index) => {
+                            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                            const isCurrentPlayer = entry.name === playerName;
+                            const highlight = isCurrentPlayer ? 'style="color: #ffeb3b; font-weight: bold;"' : 'style="color: #fff;"';
+                            html += `<p ${highlight}>${medal} ${entry.name}: ${entry.score}</p>`;
+                        });
+                        gameOverLeaderboardContent.innerHTML = html || '<p style="color: #aaa;">No local scores!</p>';
+                    } else {
+                        gameOverLeaderboardContent.innerHTML = '<p style="color: #ff6b6b;">Error loading scores</p>';
+                    }
+                } catch (localError) {
+                    console.error('❌ Game over local fallback failed:', localError);
+                    gameOverLeaderboardContent.innerHTML = '<p style="color: #ff6b6b;">Error loading scores</p>';
+                }
             }
         }
         
