@@ -415,10 +415,11 @@
             startImg.onerror = () => console.error('Failed to load start.png');
             gameOverImg.onerror = () => console.error('Failed to load image.png');
             
-            faceImg.src = 'face.png';
-            trophyImg.src = 'trophy.png';
-            startImg.src = 'start.png';
-            gameOverImg.src = 'image.png';
+            // Load images from GitHub repository
+            faceImg.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/face.png';
+            trophyImg.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/trophy.png';
+            startImg.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/start.png';
+            gameOverImg.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/image.png';
         }
         
         // Audio
@@ -427,25 +428,20 @@
         
         function loadAudio() {
             jumpAudio = new Audio();
-            jumpAudio.src = 'ek_chakke_ne_world_cup.mp3';
+            jumpAudio.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/ek_chakke_ne_world_cup.mp3';
             jumpAudio.volume = 1.0;
             
             gameOverAudio = new Audio();
-            gameOverAudio.src = 'ek_chakke_ne_world_cup.mp3';
-            gameOverAudio.volume = 0.8;
+            gameOverAudio.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/ek_chakke_ne_world_cup.mp3';
+            gameOverAudio.volume = 1.0;
             
             backgroundMusic = new Audio();
-            backgroundMusic.src = 'Bole Jo Koyal Bago Mein Tik Tok - 64Kbps-(Mr-Jat.in).mp3';
-            backgroundMusic.volume = 0.3;
+            backgroundMusic.src = 'https://raw.githubusercontent.com/tushar385/pygame_msd/main/Bole%20Jo%20Koyal%20Bago%20Mein%20Tik%20Tok%20-%2064Kbps-(Mr-Jat.in).mp3';
+            backgroundMusic.volume = 0.7;
             backgroundMusic.loop = true;
             
-            jumpAudio.addEventListener('canplaythrough', () => {
-                audioLoaded = true;
-                console.log('Audio loaded successfully');
-            });
-            
-            jumpAudio.addEventListener('error', () => console.error('Failed to load jump audio'));
-            gameOverAudio.addEventListener('error', () => console.error('Failed to load game over audio'));
+            audioLoaded = true;
+            console.log('Audio loaded successfully');
             backgroundMusic.addEventListener('error', () => console.error('Failed to load background music'));
         }
         
