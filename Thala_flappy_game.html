@@ -481,9 +481,9 @@
             
             // Dynamic scaling based on screen size
             if (screenWidth <= 768) {
-                // Mobile: Fill screen completely
-                scaleFactor = Math.max(scaleX, scaleY);
-                console.log(`📱 Mobile - Full screen scaling: ${scaleFactor.toFixed(2)}`);
+                // Mobile: Fit screen properly (not max)
+                scaleFactor = Math.min(scaleX, scaleY);
+                console.log(`📱 Mobile - Fit screen scaling: ${scaleFactor.toFixed(2)}`);
             } else if (screenWidth <= 1200) {
                 // Tablet/Small desktop: Moderate scaling
                 scaleFactor = Math.min(scaleX, scaleY) * 0.8;
@@ -491,11 +491,12 @@
             } else {
                 // Large desktop: Original size or slight scaling
                 scaleFactor = Math.min(scaleX, scaleY) * 0.6;
-                console.log(`�️ Desktop - Optimized scaling: ${scaleFactor.toFixed(2)}`);
+                console.log(`🖥️ Desktop - Optimized scaling: ${scaleFactor.toFixed(2)}`);
             }
             
-            // Ensure minimum scale factor
-            scaleFactor = Math.max(scaleFactor, 0.5);
+            // Ensure reasonable scale factor
+            scaleFactor = Math.max(scaleFactor, 0.3);
+            scaleFactor = Math.min(scaleFactor, 1.0);
             
             console.log(`📐 Screen: ${screenWidth}x${screenHeight} vs Game: ${WIDTH}x${HEIGHT}`);
             console.log(`📏 Scale ratios - X: ${scaleX.toFixed(2)}, Y: ${scaleY.toFixed(2)}`);
