@@ -184,7 +184,7 @@
         updateScaleFactor();
         window.addEventListener('resize', updateScaleFactor);
         
-        // Player - exact match with desktop (70x60)
+        // Player - exact match with desktop (70x60) with falling mode support
         const player = {
             x: 100,
             y: HEIGHT / 2,
@@ -192,7 +192,8 @@
             height: 60,
             velocity: 0,
             gravity: 0.5,
-            jump: -8
+            jump: -8,
+            fallingMode: true // Start in slow falling mode
         };
         
         // Pipes - exact match with desktop but easier
@@ -419,7 +420,19 @@
             ctx.fillStyle = YELLOW;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            player.velocity += player.gravity;
+            // Slower gravity for first 2 seconds (120 frames at 60fps) and falling mode
+            const gameAge = frameCount;
+            let gravityMultiplier;
+            
+            if (player.fallingMode) {
+                gravityMultiplier = 0.3; // 30% gravity while in falling mode
+            } else if (gameAge < 120) {
+                gravityMultiplier = 0.3; // 30% gravity for first 2 seconds
+            } else {
+                gravityMultiplier = 1.0; // 100% normal gravity
+            }
+            
+            player.velocity += player.gravity * gravityMultiplier;
             player.y += player.velocity;
             
             // Spawn pipes - first obstacle comes after 0.5 seconds, then normal spacing
@@ -464,6 +477,8 @@
         
         function jump() {
             if (gameStarted && !gameOver) {
+                // Exit falling mode on first jump
+                player.fallingMode = false;
                 player.velocity = player.jump;
                 playJumpSound();
             }
