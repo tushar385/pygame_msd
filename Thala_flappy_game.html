@@ -120,16 +120,14 @@
 
 <!-- GAME OVER SCREEN -->
 <div class="game-over-screen hidden" id="gameOverScreen">
-    <img src="image.png" alt="Game Over" style="width:260px;height:175px;margin:12px;border:2px solid #000;border-radius:10px;">
-    <h1>GAME OVER!</h1>
-    <p id="finalScore">Score: 0</p>
-    <p id="personalBest" style="color:#ffdf00;font-size:1em;"></p>
+    <img src="image.png" alt="Game Over" style="width:260px;height:175px;margin:8px;border:2px solid #000;border-radius:10px;">
+    <h1 style="font-size:1.4em;margin-bottom:4px;">GAME OVER!</h1>
+    <p id="finalScore" style="font-size:1.1em;"></p>
+    <button class="btn" id="restartBtn">▶ Play Again</button>
     <div class="leaderboard" id="gameOverLeaderboard">
         <h2>🏆 Top Players</h2>
         <div class="lb-empty">Loading...</div>
     </div>
-    <button class="btn" id="restartBtn">▶ Play Again</button>
-    <div style="color:#aaa;font-size:0.85em;">Tap anywhere to restart</div>
 </div>
 
 <script>
@@ -226,7 +224,7 @@ let score = 0, frameCount = 0;
 let gameOverTime = 0, raf = null;
 let py = VH / 2, vy = 0;
 let pipes = [], passedPipes = [];
-let playerName = 'Player';
+let restartOk = false;
 let localBest  = 0;
 
 const startScreen    = document.getElementById('startScreen');
@@ -365,10 +363,11 @@ function gameLoop(timestamp) {
 
 async function handleGameOver() {
     if (score > localBest) localBest = score;
-    finalScoreEl.textContent   = `Score: ${score}`;
-    personalBestEl.textContent = `Your Best: ${localBest}`;
+    finalScoreEl.textContent   = `Score: ${score}  |  Best: ${localBest}`;
     gameOverScreen.classList.remove('hidden');
     gameOverTime = Date.now();
+    restartOk = false;
+    setTimeout(() => restartOk = true, 1500);
     await saveScore(playerName, score);
     const lb = await getLeaderboard();
     renderLeaderboard('gameOverLeaderboard', lb, playerName);
@@ -383,7 +382,7 @@ function handleTap(e) {
     const isBottom = touchY > window.innerHeight / 2;
     if (!gameStarted && !gameOver)     doStart();
     else if (gameStarted && !gameOver) jump();
-    else if (gameOver && (Date.now() - gameOverTime >= 2000 || isBottom)) restartGame();
+    else if (gameOver && restartOk) restartGame();
 }
 
 function doStart() {
