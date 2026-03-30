@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Flappy Dhoni - Mobile Game</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -115,11 +120,30 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     
-    <div class="start-screen" id="startScreen">
+    <!-- Name Input Screen -->
+    <div class="name-screen" id="nameScreen">
+        <h1>🏏 Flappy Dhoni</h1>
+        <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 15px; margin: 20px;">
+            <h2 style="color: #fff; margin-bottom: 15px;">Enter Your Name</h2>
+            <input type="text" id="playerNameInput" placeholder="Your name..." maxlength="20" 
+                   style="padding: 10px; font-size: 16px; border: none; border-radius: 5px; width: 200px; margin-bottom: 15px;">
+            <br>
+            <button class="btn" onclick="savePlayerName()">Start Playing</button>
+            <div style="color: #ffeb3b; font-size: 0.8em; margin-top: 15px;">📱 Play Horizontally for better experience!</div>
+        </div>
+    </div>
+    
+    <!-- Start Screen -->
+    <div class="start-screen hidden" id="startScreen">
         <h1>🏏 Flappy Dhoni</h1>
         <img id="startImage" src="start.png" alt="Start" style="width: 200px; height: 150px; margin: 20px; border: 2px solid #000; border-radius: 10px;">
         <p>Tap to Start Playing!</p>
         <div style="color: #fff; font-size: 0.9em; margin: 10px 0;">Tap anywhere to jump</div>
+        <div style="color: #ffeb3b; font-size: 0.8em; margin: 15px 0; font-weight: bold;">📱 Play Horizontally for better experience!</div>
+        <div style="margin-top: 20px;">
+            <button class="btn" onclick="showLeaderboard()">🏆 Leaderboard</button>
+            <button class="btn" onclick="changeName()" style="margin-left: 10px;">✏️ Change Name</button>
+        </div>
     </div>
     
     <div class="game-over-screen hidden" id="gameOverScreen">
@@ -129,15 +153,177 @@
         <button class="btn" onclick="restartGame()">Tap to Restart</button>
         <div style="color: #fff; font-size: 0.9em;">Tap anywhere to restart</div>
     </div>
+    
+    <!-- Leaderboard Screen -->
+    <div class="leaderboard-screen hidden" id="leaderboardScreen">
+        <h1>🏆 Global Leaderboard</h1>
+        <div id="leaderboardContent" style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 15px; margin: 20px; min-height: 300px;">
+            <p style="color: #fff;">Loading leaderboard...</p>
+        </div>
+        <button class="btn" onclick="hideLeaderboard()">Back to Game</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const nameScreen = document.getElementById('nameScreen');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
+        const leaderboardScreen = document.getElementById('leaderboardScreen');
         const finalScoreElement = document.getElementById('finalScore');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const leaderboardContent = document.getElementById('leaderboardContent');
         const startImage = document.getElementById('startImage');
         const gameOverImage = document.getElementById('gameOverImage');
+        
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD4wTFMQIHth8j_JIjrDvmcMFstTTlz0U0",
+            authDomain: "flappy-dhoni-game.firebaseapp.com",
+            projectId: "flappy-dhoni-game",
+            storageBucket: "flappy-dhoni-game.firebasestorage.app",
+            messagingSenderId: "656806403900",
+            appId: "1:656806403900:web:b254320e22d08cfa0f8839",
+            measurementId: "G-MP7LNQBNLC"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // Player data
+        let playerName = '';
+        let gameStarted = false;
+        let gameOver = false;
+        let score = 0;
+        let frameCount = 0;
+        let passedPipes = [];
+        let gameOverTime = 0;
+        
+        // Name management
+        function loadPlayerName() {
+            const saved = localStorage.getItem('flappyDhoniPlayerName');
+            if (saved) {
+                playerName = saved;
+                showStartScreen();
+            } else {
+                showNameScreen();
+            }
+        }
+        
+        function savePlayerName() {
+            const name = playerNameInput.value.trim();
+            if (name.length > 0) {
+                playerName = name;
+                localStorage.setItem('flappyDhoniPlayerName', playerName);
+                showStartScreen();
+            }
+        }
+        
+        function changeName() {
+            localStorage.removeItem('flappyDhoniPlayerName');
+            showNameScreen();
+        }
+        
+        // Screen management
+        function showNameScreen() {
+            nameScreen.classList.remove('hidden');
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            leaderboardScreen.classList.add('hidden');
+        }
+        
+        function showStartScreen() {
+            nameScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            gameOverScreen.classList.add('hidden');
+            leaderboardScreen.classList.add('hidden');
+        }
+        
+        function showLeaderboard() {
+            nameScreen.classList.add('hidden');
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            leaderboardScreen.classList.remove('hidden');
+            loadLeaderboard();
+        }
+        
+        function hideLeaderboard() {
+            showStartScreen();
+        }
+        
+        // Leaderboard functions
+        async function submitScore(name, score) {
+            try {
+                await db.collection('leaderboard').add({
+                    name: name,
+                    score: score,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    date: new Date().toLocaleDateString()
+                });
+                console.log('Score submitted successfully');
+            } catch (error) {
+                console.error('Error submitting score:', error);
+            }
+        }
+        
+        async function loadLeaderboard() {
+            try {
+                leaderboardContent.innerHTML = '<p style="color: #fff;">Loading leaderboard...</p>';
+                
+                const snapshot = await db.collection('leaderboard')
+                    .orderBy('score', 'desc')
+                    .orderBy('timestamp', 'desc')
+                    .limit(50)
+                    .get();
+                
+                const scores = [];
+                snapshot.forEach(doc => {
+                    scores.push(doc.data());
+                });
+                
+                // Remove duplicates (keep highest score per player)
+                const uniqueScores = {};
+                scores.forEach(entry => {
+                    if (!uniqueScores[entry.name] || entry.score > uniqueScores[entry.name].score) {
+                        uniqueScores[entry.name] = entry;
+                    }
+                });
+                
+                // Sort and get top 10
+                const topScores = Object.values(uniqueScores)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 10);
+                
+                // Display leaderboard
+                let html = '<div style="text-align: left;">';
+                if (topScores.length === 0) {
+                    html += '<p style="color: #fff;">No scores yet! Be the first to play!</p>';
+                } else {
+                    topScores.forEach((entry, index) => {
+                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                        const isCurrentPlayer = entry.name === playerName;
+                        const highlight = isCurrentPlayer ? 'style="color: #ffeb3b; font-weight: bold;"' : 'style="color: #fff;"';
+                        html += `<p ${highlight}>${medal} ${entry.name}: ${entry.score} - ${entry.date}</p>`;
+                    });
+                }
+                html += '</div>';
+                
+                leaderboardContent.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                leaderboardContent.innerHTML = '<p style="color: #ff6b6b;">Error loading leaderboard. Please try again.</p>';
+            }
+        }
+        
+        // Game constants
+        const WIDTH = 900;
+        const HEIGHT = 700;
+        const YELLOW = '#ffdf00';
+        const BLACK = '#000';
+        const GREEN = '#008000';
+        const DARK_GREEN = '#006400';
         
         // Set canvas size
         function setCanvasSize() {
@@ -146,38 +332,8 @@
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
             } else {
-                canvas.width = 900;
-                canvas.height = 700;
-            }
-        }
-        
-        setCanvasSize();
-        window.addEventListener('resize', setCanvasSize);
-        
-        // Game variables - exact match with desktop
-        const WIDTH = 900;
-        const HEIGHT = 700;
-        const YELLOW = '#ffdf00';
-        const BLACK = '#000';
-        const GREEN = '#008000';
-        const DARK_GREEN = '#006400';
-        
-        let gameStarted = false;
-        let gameOver = false;
-        let score = 0;
-        let frameCount = 0;
-        let passedPipes = [];
-        let gameOverTime = 0;
-        
-        // Scale factor for mobile
-        let scaleFactor = 1;
-        
-        function updateScaleFactor() {
-            const isMobile = window.innerWidth <= 768;
-            if (isMobile) {
-                scaleFactor = Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT);
-            } else {
-                scaleFactor = 1;
+                canvas.width = WIDTH;
+                canvas.height = HEIGHT;
             }
         }
         
@@ -504,6 +660,11 @@
             finalScoreElement.textContent = `Score: ${score}`;
             gameOverScreen.classList.remove('hidden');
             gameOverTime = Date.now(); // Record when game ended
+            
+            // Submit score to leaderboard
+            if (playerName && score > 0) {
+                submitScore(playerName, score);
+            }
         }
         
         function restartGame() {
@@ -557,6 +718,7 @@
         // Initialize
         loadImages();
         loadAudio();
+        loadPlayerName();
         
         console.log('🏏 Flappy Dhoni Mobile Game Loaded - Ready to Play!');
     </script>
