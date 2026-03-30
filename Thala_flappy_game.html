@@ -457,11 +457,14 @@
         function setCanvasSize() {
             const isMobile = window.innerWidth <= 768;
             if (isMobile) {
+                // Use full screen on mobile
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
+                console.log(`📱 Mobile canvas size: ${canvas.width}x${canvas.height}`);
             } else {
                 canvas.width = WIDTH;
                 canvas.height = HEIGHT;
+                console.log(`🖥️ Desktop canvas size: ${canvas.width}x${canvas.height}`);
             }
         }
         
@@ -471,9 +474,16 @@
         function updateScaleFactor() {
             const isMobile = window.innerWidth <= 768;
             if (isMobile) {
-                scaleFactor = Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT);
+                // Better scaling for mobile - use more of the screen
+                const widthRatio = window.innerWidth / WIDTH;
+                const heightRatio = window.innerHeight / HEIGHT;
+                scaleFactor = Math.max(widthRatio, heightRatio) * 0.9; // Use 90% of max dimension
+                
+                console.log(`📱 Mobile scale factor: ${scaleFactor.toFixed(2)}`);
+                console.log(`📐 Screen: ${window.innerWidth}x${window.innerHeight} vs Game: ${WIDTH}x${HEIGHT}`);
             } else {
                 scaleFactor = 1;
+                console.log(`🖥️ Desktop scale factor: ${scaleFactor}`);
             }
         }
         
@@ -765,10 +775,21 @@
                 }
             }
             
-            ctx.fillStyle = BLACK;
-            ctx.font = `${50 * scaleFactor}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText(score.toString(), (WIDTH / 2 - 20) * scaleFactor, 50 * scaleFactor);
+            // Better mobile score positioning
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                // Center score on mobile, make it bigger
+                ctx.fillStyle = BLACK;
+                ctx.font = `bold ${60 * scaleFactor}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText(score.toString(), canvas.width / 2, 80 * scaleFactor);
+            } else {
+                // Desktop positioning
+                ctx.fillStyle = BLACK;
+                ctx.font = `${50 * scaleFactor}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText(score.toString(), (WIDTH / 2 - 20) * scaleFactor, 50 * scaleFactor);
+            }
             
             frameCount++;
             requestAnimationFrame(gameLoop);
